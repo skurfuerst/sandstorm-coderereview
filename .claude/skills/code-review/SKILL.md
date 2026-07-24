@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Review code for design quality using "A Philosophy of Software Design" (Ousterhout) — module depth, complexity smells, why-comments, package structure, and value objects over primitives. Use whenever the user asks for a code review, a design/quality review, or to critique the structure of PHP (or similar OO) code, a class, a package, or a diff. Prefer this over a generic review whenever design quality matters.
+description: Review code for design quality using "A Philosophy of Software Design" (Ousterhout) — module depth, complexity smells, why-comments, package structure, immutable value objects over primitives, proximity/locality, modern PHP with clean evolution (refactor rather than keep old code paths), and test-first end-to-end coverage. Use whenever the user asks for a code review, a design/quality review, or to critique the structure of PHP (or similar OO) code, a class, a package, or a diff. Prefer this over a generic review whenever design quality matters.
 ---
 
 # Code Review: Deep Modules
@@ -63,6 +63,12 @@ Stay calibrated — don't manufacture findings to look thorough. For example,
 integer overflow is rarely a real concern in typical PHP (ints are 64-bit and
 ordinary money/counts stay far within range); don't raise it unless the domain
 genuinely reaches those magnitudes.
+
+But calibration cuts both ways: a **blocking bug comes first**, above every design
+point. If the code won't run or compile (e.g. a test with missing imports), loses
+data, or has a security hole (unescaped output/XSS, SQL or CSV injection), say so up
+front — design depth is the lens here, not a reason to overlook a showstopper. Report
+such bugs alongside the design findings, never in place of them.
 
 ## 1. Module depth
 
