@@ -208,6 +208,42 @@ final class AuthRetryPolicy {
 }
 ```
 
+## 7. Modern PHP & clean evolution
+
+- **Use the modern language.** Union types (`int|string`), enums, `readonly`,
+  `match`, constructor promotion, named arguments, first-class callable syntax —
+  they put intent in the type system instead of in docblocks or runtime checks.
+  Flag `mixed`, untyped params, `@param`-only typing, or hand-rolled type-switching
+  where a union type or enum would state it directly. (Not at odds with §2: a plain
+  `?T`/null is still a smell — an unwanted "absent" case leaking to callers —
+  whereas a deliberate `A|B` union or an enum models a real, closed set of cases.)
+- **Refactor; don't keep the old path alive.** When behavior changes, change it and
+  delete the old code — no `if ($legacy)` branches, `*_v2` methods, or "just in
+  case" compatibility shims. Every retained old path is permanent interface width
+  and one more branch to read (§2). Updating all callers in one clean refactor is
+  cheaper to live with than a behavior fork that never gets removed.
+
+```php
+// BAD — old and new behavior coexist forever; every caller must pick.
+function render(Report $r, bool $useLegacyLayout = false): string {
+    if ($useLegacyLayout) { /* old path, still here "just in case" */ }
+    /* new path */
+}
+
+// GOOD — one behavior; flag and old branch deleted, callers updated.
+function render(Report $r): string { /* the current behavior, only */ }
+```
+
+## 8. Tests: TDD, end to end
+
+Design is only trustworthy when tests drive it. Expect tests to arrive *with* a
+change (ideally written first) and to be **end-to-end** — exercising real behavior
+through the public entry point (§6), not asserting on private internals or a wall
+of mocks. A deep module (§1) makes this easy: a small public interface is a small,
+stable test surface. Flag changes shipped without tests, tests bolted on afterwards
+that just mirror the implementation, and heavy mocking that tests the mocks rather
+than the behavior.
+
 ## Output
 
 Summarize the biggest depth problem first, then list findings by dimension. Keep
