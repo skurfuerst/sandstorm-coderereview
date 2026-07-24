@@ -70,6 +70,15 @@ data, or has a security hole (unescaped output/XSS, SQL or CSV injection), say s
 front — design depth is the lens here, not a reason to overlook a showstopper. Report
 such bugs alongside the design findings, never in place of them.
 
+Review at the altitude you were asked for: a diff, a single class, or a whole
+package. Judge a small change on its own terms — don't demand a package restructure
+when someone asked you to review a three-line diff; note the larger issue in a
+sentence and move on.
+
+Each dimension below states its principle; concrete PHP before/after patterns live
+in `references/examples.md` — read the relevant section when you want a worked
+example to point at.
+
 ## 1. Module depth
 
 Flag shallow modules: pass-through getters/setters, `Manager`/`Helper`/`Util`
@@ -87,22 +96,7 @@ it. Treat them as symptoms, then find the shallow module behind them.
 - **Ternaries**, especially nested → a decision the caller shouldn't be making.
 - **Nullable types (`?T`)** → `null` forces every caller to handle the empty case.
   A deep module absorbs it (Null Object, an always-valid default, an empty
-  collection).
-
-```php
-// SMELL — nullability + branching push special cases onto every caller.
-function total(Money $base, ?Discount $d, ?Coupon $c): Money {
-    $t = $base;
-    if ($d !== null) { $t = $d->applyTo($t); }
-    if ($c !== null) { $t = $c->applyTo($t); }
-    return $t;
-}
-
-// DEEPER — Discount is always present (NoDiscount is the neutral case).
-function total(Money $base, Discount $d): Money {
-    return $d->applyTo($base); // no null, no branch; the type carries the case
-}
-```
+  collection). *(example: `references/examples.md` §2)*
 
 ## 3. Comments — explain *why*, not *what*
 
@@ -114,18 +108,7 @@ Focus on **class-level** comments. Each class should either carry a substantial
 *why* comment (what problem it exists to solve, what invariant it guards, what it
 deliberately hides) **or** a `@see` link to the class that holds that rationale.
 Code inside the class should then read plainly enough to need few inline comments.
-
-```php
-// BAD — restates the code.
-$i++; // increment i
-
-/**
- * Retry auth at most 3 times: the PSP locks the account after 4 failed
- * attempts in 60s, so a 4th retry would lock out a legitimate user.
- * @see PaymentGateway for the surrounding protocol.
- */
-final class AuthRetryPolicy { /* ... */ }
-```
+*(example: `references/examples.md` §3)*
 
 ## 4. Naming & package structure
 
@@ -136,22 +119,9 @@ final class AuthRetryPolicy { /* ... */ }
   `Shipping`), then use a **second** level for type (the MVC-ish split).
 - **Importance flows down the tree.** The primary, most-general class sits at the
   top of its package; specific, deep-implementation classes live deeper. DTOs
-  usually get their own `Dto/` subdirectory.
-
-```
-src/
-  Billing/                 # domain — top level
-    Invoice.php            # primary class, at the top
-    Money.php              # shared value-object vocabulary (see §5)
-    Http/                  # second level = type
-      InvoiceController.php
-    Dto/
-      InvoiceView.php
-  Shipping/
-    Shipment.php
-```
-
-Not: `src/Controller/`, `src/Model/`, `src/Service/` (type-first hides the domain).
+  usually get their own `Dto/` subdirectory. Avoid type-first top levels
+  (`Controller/`, `Model/`, `Service/`) — they hide the domain.
+  *(layout example: `references/examples.md` §4)*
 
 ## 5. Value objects, immutability, not primitives
 
@@ -180,21 +150,7 @@ Not: `src/Controller/`, `src/Model/`, `src/Service/` (type-first hides the domai
 - **Custom collection types, not raw `array`.** A typed collection guarantees its
   contents and gives behavior a home — and it should be immutable too: `add()`
   returns a new collection rather than mutating in place.
-
-```php
-// BAD — primitives, no guarantees, mutable, behavior scattered at call sites.
-function ship(string $country, array $items): void {}
-
-// GOOD — types make invalid states unrepresentable; immutable; LineItems owns its logic.
-function ship(CountryCode $country, LineItems $items): void {}
-
-final class LineItems implements IteratorAggregate {
-    /** @param list<LineItem> $items */
-    private function __construct(private readonly array $items) {}
-    public function withAdded(LineItem $i): self { return new self([...$this->items, $i]); }
-    public function total(): Money { /* sum lives with the collection */ }
-}
-```
+  *(example: `references/examples.md` §5)*
 
 ## 6. Proximity & locality
 
@@ -211,21 +167,7 @@ jump far to understand what they're looking at.
   together, or that only make sense next to each other, should sit side by side —
   not scattered across a type-first layout (§4). If understanding class A means
   opening class B, they should be neighbors. High cohesion inside a package, few
-  ties reaching out of it.
-
-```php
-final class AuthRetryPolicy {
-    // 1. entry points — what callers use, read first
-    public static function default(): self { /* ... */ }
-    public function shouldRetry(Attempt $a): bool { return $this->within($a); }
-
-    // 2. private parts, in call order
-    private function within(Attempt $a): bool { /* ... */ }
-
-    // 3. low-level helpers last
-    private function backoff(int $n): Duration { /* ... */ }
-}
-```
+  ties reaching out of it. *(ordering example: `references/examples.md` §6)*
 
 ## 7. Modern PHP & clean evolution
 
@@ -241,17 +183,7 @@ final class AuthRetryPolicy {
   case" compatibility shims. Every retained old path is permanent interface width
   and one more branch to read (§2). Updating all callers in one clean refactor is
   cheaper to live with than a behavior fork that never gets removed.
-
-```php
-// BAD — old and new behavior coexist forever; every caller must pick.
-function render(Report $r, bool $useLegacyLayout = false): string {
-    if ($useLegacyLayout) { /* old path, still here "just in case" */ }
-    /* new path */
-}
-
-// GOOD — one behavior; flag and old branch deleted, callers updated.
-function render(Report $r): string { /* the current behavior, only */ }
-```
+  *(example: `references/examples.md` §7)*
 
 ## 8. Tests: TDD, end to end
 

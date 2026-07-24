@@ -1,0 +1,69 @@
+{
+  "skill_name": "code-review",
+  "notes": "Regression suite for the code-review skill. Each eval feeds the listed file(s) to a reviewer that has read SKILL.md, with the given prompt. `expectations` are the design points a good review should surface. Baseline (no skill) reference: on these cases a strong model already finds most issues; the skill's measured value is consistency across dimensions, calibration on good code (not flagging integer overflow / not gold-plating Money), and the clean-evolution stance (delete the legacy path rather than preserve it).",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "Can you review this PHP class for me?",
+      "files": ["evals/files/OrderPricing.php"],
+      "expected_output": "Design review leading with the shallow-because-primitives problem.",
+      "expectations": [
+        "Flags getSubtotal/getCurrency as shallow pass-through methods (§1)",
+        "Flags the nullable ?array/?string params as pushing special cases onto callers (§2)",
+        "Flags the discount-type / tax-region if+ternary branching as leaked special cases (§2)",
+        "Recommends value objects instead of raw array/string/float (§5)",
+        "Proposes an always-present Discount / Null Object so the null branch disappears (§2)"
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "Can you do a design review of this class?",
+      "files": ["evals/files/NotificationManager.php"],
+      "expected_output": "Review covering what-comments, member ordering, naming/namespace, value objects.",
+      "expectations": [
+        "Flags the what-comments that restate the code (§3)",
+        "Flags member ordering: helpers on top, send() buried, constructor last (§6)",
+        "Flags the type-first App\\Model namespace and/or the vague Manager name (§4)",
+        "Recommends value objects for the string channel/recipient (§5)",
+        "Recommends a class-level why-comment or @see link (§3)"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Review this class.",
+      "files": ["evals/files/Money.php"],
+      "expected_output": "Calibration case: recognizes a deep, well-designed VO; stays minor; does NOT flag integer overflow.",
+      "expectations": [
+        "Recognizes Money as a deep, immutable, well-designed value object (§1/§5)",
+        "Approves the class-level why-comment rather than asking to remove it (§3)",
+        "Does NOT flag integer overflow as a problem (calibration)",
+        "Keeps suggestions minor/calibrated — no manufactured redesign or gold-plating"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "We added the new layout a while ago but kept the old one behind a flag. Can you review this class?",
+      "files": ["evals/files/LegacyReportRenderer.php"],
+      "expected_output": "Review that says delete the legacy path, use an enum, type the report; also catches the XSS.",
+      "expectations": [
+        "Recommends DELETING the old layout path / refactoring rather than keeping the $useLegacyLayout flag (§7)",
+        "Flags mixed and the untyped $options / @param-only typing and recommends explicit or union types (§7)",
+        "Recommends an enum for $format instead of magic strings with if/elseif fallthrough (§7/§2)",
+        "Flags the raw array $report primitive and suggests a typed Report / value object (§5)",
+        "Surfaces the unescaped-HTML XSS as a blocking bug (blocking-bugs-first)"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Review this loyalty points code and its test.",
+      "files": ["evals/files/LoyaltyPoints.php", "evals/files/LoyaltyServiceTest.php"],
+      "expected_output": "Review identifying the anemic model, tier enum, and the mock-mirroring test.",
+      "expectations": [
+        "Identifies the anemic model: award/points logic belongs on Customer, not a service reaching in (§5)",
+        "Flags the mutable Customer (public props + setters) and recommends immutability / encapsulation (§5)",
+        "Recommends an enum/value object for the tier and flags the rate if/elseif branching (§2/§7)",
+        "Flags the test as mock-heavy / mirroring the implementation rather than end-to-end (§8)"
+      ]
+    }
+  ]
+}
