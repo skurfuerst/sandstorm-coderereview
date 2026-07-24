@@ -142,28 +142,37 @@ src/
 
 Not: `src/Controller/`, `src/Model/`, `src/Service/` (type-first hides the domain).
 
-## 5. Value objects, not primitives
+## 5. Value objects, immutability, not primitives
 
 - **No bare strings/ints in the domain.** A `string $country` accepts any string
   and validates nowhere; a `CountryCode` is valid by construction and names the
   concept. Wrap primitives in value objects — this is where branching and null
   checks disappear.
+- **Make them immutable.** A value object validated once at construction should
+  stay valid forever, so callers can pass it around and cache it without fearing it
+  mutates underneath them. Enforce it: `readonly` properties, no setters, a private
+  constructor behind named constructors, and operations that return a *new* instance
+  (`$price->plus($tax)`) instead of mutating. Immutability is what lets a type be
+  trusted vocabulary — and it removes a whole class of "who changed this?" bugs and
+  the defensive branching they breed.
 - **Value objects are the shared vocabulary.** Put the common ones (`Money`,
   `EmailAddress`, `CountryCode`) in the top-level / core namespace so every package
   speaks the same language.
 - **Custom collection types, not raw `array`.** A typed collection guarantees its
-  contents and gives behavior a home.
+  contents and gives behavior a home — and it should be immutable too: `add()`
+  returns a new collection rather than mutating in place.
 
 ```php
-// BAD — primitives, no guarantees, behavior scattered at call sites.
+// BAD — primitives, no guarantees, mutable, behavior scattered at call sites.
 function ship(string $country, array $items): void {}
 
-// GOOD — types make invalid states unrepresentable; LineItems owns its own logic.
+// GOOD — types make invalid states unrepresentable; immutable; LineItems owns its logic.
 function ship(CountryCode $country, LineItems $items): void {}
 
 final class LineItems implements IteratorAggregate {
     /** @param list<LineItem> $items */
-    private function __construct(private array $items) {}
+    private function __construct(private readonly array $items) {}
+    public function withAdded(LineItem $i): self { return new self([...$this->items, $i]); }
     public function total(): Money { /* sum lives with the collection */ }
 }
 ```
