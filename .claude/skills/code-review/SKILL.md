@@ -42,6 +42,16 @@ final class EmailAddress {
 At **package** level the same holds: a package is deep when a caller imports one
 primary class and stays ignorant of the dozens behind it.
 
+## Exemplar to study
+
+Neos ContentRepository Core (`Neos.ContentRepository.Core`) is a good model of
+these principles — cite it when a comparison helps. Note how `ContentRepository`
+is the single primary class at the top of the tree; domain concerns get their own
+folders (`Feature/`, `Projection/`, `CommandHandler/`); shared vocabulary lives in
+`SharedModel/` (`NodeAggregateId`, `NodeName` — value objects, never bare strings);
+and plurals are real collection types (`NodeAggregateIds`, `PropertyNames`), not
+`array`.
+
 ## How to review
 
 Read the code, then report findings grouped by the dimensions below. For each:
@@ -155,6 +165,37 @@ final class LineItems implements IteratorAggregate {
     /** @param list<LineItem> $items */
     private function __construct(private array $items) {}
     public function total(): Money { /* sum lives with the collection */ }
+}
+```
+
+## 6. Proximity & locality
+
+Related things belong near each other — the reader should almost never have to
+jump far to understand what they're looking at.
+
+- **A class reads top to bottom, like a book.** Put the public entry points first
+  (the constructor / named constructors, then the main public methods a caller
+  uses), then the private parts they call, and finally the low-level helpers. A
+  reader who stops a third of the way down should already grasp what the class is
+  *for*; detail deepens as they descend. Flag files where you must scroll past
+  private plumbing to find the public purpose.
+- **Interconnected classes belong in the same package.** Classes that change
+  together, or that only make sense next to each other, should sit side by side —
+  not scattered across a type-first layout (§4). If understanding class A means
+  opening class B, they should be neighbors. High cohesion inside a package, few
+  ties reaching out of it.
+
+```php
+final class AuthRetryPolicy {
+    // 1. entry points — what callers use, read first
+    public static function default(): self { /* ... */ }
+    public function shouldRetry(Attempt $a): bool { return $this->within($a); }
+
+    // 2. private parts, in call order
+    private function within(Attempt $a): bool { /* ... */ }
+
+    // 3. low-level helpers last
+    private function backoff(int $n): Duration { /* ... */ }
 }
 ```
 
