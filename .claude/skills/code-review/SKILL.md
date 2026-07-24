@@ -59,6 +59,11 @@ name the location (`path:line`), state which principle it breaks, explain the
 **why**, and show the deeper alternative. Lead with the design issues that make
 the module shallow — those matter more than style nits.
 
+Stay calibrated — don't manufacture findings to look thorough. For example,
+integer overflow is rarely a real concern in typical PHP (ints are 64-bit and
+ordinary money/counts stay far within range); don't raise it unless the domain
+genuinely reaches those magnitudes.
+
 ## 1. Module depth
 
 Flag shallow modules: pass-through getters/setters, `Manager`/`Helper`/`Util`
@@ -154,7 +159,15 @@ Not: `src/Controller/`, `src/Model/`, `src/Service/` (type-first hides the domai
   constructor behind named constructors, and operations that return a *new* instance
   (`$price->plus($tax)`) instead of mutating. Immutability is what lets a type be
   trusted vocabulary — and it removes a whole class of "who changed this?" bugs and
-  the defensive branching they breed.
+  the defensive branching they breed. The same discipline usually pays off inside
+  **algorithms**: transform immutable data into new values rather than mutating in
+  place, so each step is easy to reason about and test.
+- **Put behavior where the data lives.** Logic that works on a value belongs on the
+  value object / DTO that owns it, not spread across services that reach in and
+  manipulate it from outside (an anemic model). Moving it inward is how a type
+  becomes deep (§1) — behavior and the data it guards travel together. But only
+  push in logic that *genuinely belongs* to that type; don't cram unrelated
+  concerns into a value object just to avoid writing another class.
 - **Value objects are the shared vocabulary.** Put the common ones (`Money`,
   `EmailAddress`, `CountryCode`) in the top-level / core namespace so every package
   speaks the same language.
